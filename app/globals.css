@@ -1,26 +1,45 @@
 @import "tailwindcss";
 
+/* Pixi aesthetic: soft, dewy, clean. Rose/blush plus warm neutrals,
+   generous whitespace, rounded corners, a subtle glow accent. */
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --background: #fff7f5;
+  --foreground: #3a2a2e;
+  --rose: #e8a0b0;
+  --rose-deep: #c76b86;
+  --blush: #fce4e7;
+  --cream: #fffaf7;
+  --sand: #f3e7df;
 }
 
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
+  --color-rose: var(--rose);
+  --color-rose-deep: var(--rose-deep);
+  --color-blush: var(--blush);
+  --color-cream: var(--cream);
+  --color-sand: var(--sand);
   --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
 }
 
 body {
-  background: var(--background);
+  background:
+    radial-gradient(1200px 600px at 50% -10%, var(--blush), transparent 60%),
+    var(--background);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: var(--font-sans), ui-sans-serif, system-ui, sans-serif;
+}
+
+/* Subtle glow accent used on primary actions and the brand mark. */
+.glow {
+  box-shadow: 0 8px 30px -8px rgba(199, 107, 134, 0.45);
+}
+
+.pixi-scroll::-webkit-scrollbar {
+  width: 8px;
+}
+.pixi-scroll::-webkit-scrollbar-thumb {
+  background: var(--sand);
+  border-radius: 9999px;
 }
