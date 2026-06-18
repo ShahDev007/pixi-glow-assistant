@@ -19,16 +19,22 @@ async function main() {
   if (!process.env.DATABASE_URL) {
     throw new Error("DATABASE_URL is not set (add it to .env.local)");
   }
-  if (embeddingsProvider() === "none") {
-    throw new Error("No embeddings provider (set VOYAGE_API_KEY or OPENAI_API_KEY)");
-  }
 
   const pool = new Pool({
     connectionString: process.env.DATABASE_URL,
     ssl: { rejectUnauthorized: false },
   });
 
-  console.log(`Embeddings provider: ${embeddingsProvider()} (dim ${EMBED_DIM})`);
+  // Embeddings are optional. With a provider we populate the vector columns for
+  // true RAG; without one we still load the catalog and policies (with null
+  // embeddings) so persistence and the dashboard work, and retrieval uses the
+  // full-catalog fallback until a key is added and the seed is re-run.
+  const withEmbeddings = embeddingsProvider() !== "none";
+  console.log(
+    withEmbeddings
+      ? `Embeddings provider: ${embeddingsProvider()} (dim ${EMBED_DIM})`
+      : "No embeddings provider yet. Loading data with null embeddings (full-catalog fallback active). Re-run after adding VOYAGE_API_KEY for true RAG."
+  );
 
   // Apply schema with the correct vector dimension for this provider.
   const schema = readFileSync(join(process.cwd(), "scripts", "schema.sql"), "utf8").replace(
@@ -38,7 +44,7 @@ async function main() {
   await pool.query(schema);
   console.log("Schema applied.");
 
-  // Products: embed and upsert.
+  // Products: embed (if a provider exists) and upsert.
   const productText = PRODUCTS.map((p) =>
     [
       p.name,
@@ -50,9 +56,10 @@ async function main() {
       p.howToUse,
     ].join(". ")
   );
-  const productVecs = await embed(productText);
+  const productVecs = withEmbeddings ? await embed(productText) : null;
   for (let i = 0; i < PRODUCTS.length; i++) {
     const p = PRODUCTS[i];
+    const embeddingParam = productVecs ? toVectorLiteral(productVecs[i]) : null;
     await pool.query(
       `insert into products
          (id, name, category, collection, key_actives, targets, benefits,
@@ -66,7 +73,7 @@ async function main() {
       [
         p.id, p.name, p.category, p.collection, p.keyActives, p.targets, p.benefits,
         p.howToUse, p.priceUsd, p.priceNote, p.size, p.productUrl,
-        toVectorLiteral(productVecs[i]),
+        embeddingParam,
       ]
     );
   }
@@ -74,14 +81,14 @@ async function main() {
 
   // Documents: rebuild cleanly (small, fully derived from seed) to stay idempotent.
   const docText = POLICY_DOCS.map((d) => `${d.title}. ${d.content}`);
-  const docVecs = await embed(docText);
+  const docVecs = withEmbeddings ? await embed(docText) : null;
   await pool.query("delete from documents");
   for (let i = 0; i < POLICY_DOCS.length; i++) {
     const d = POLICY_DOCS[i];
     await pool.query(
       `insert into documents (doc_type, title, content, embedding)
        values ($1,$2,$3,$4::vector)`,
-      [d.docType, d.title, d.content, toVectorLiteral(docVecs[i])]
+      [d.docType, d.title, d.content, docVecs ? toVectorLiteral(docVecs[i]) : null]
     );
   }
   console.log(`Inserted ${POLICY_DOCS.length} documents.`);

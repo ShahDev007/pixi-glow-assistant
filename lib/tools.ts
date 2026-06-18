@@ -146,7 +146,8 @@ function pickTonicForConcern(concern: string): Product | null {
       .some((w) => w.length > 3 && t.includes(w))
   );
   const id = match?.productId ?? "glow-tonic";
-  return PRODUCTS.find((p) => p.id === id) ?? null;
+  // Fall back to the hero Glow Tonic if the mapped tonic is not in the catalog.
+  return PRODUCTS.find((p) => p.id === id) ?? PRODUCTS.find((p) => p.id === "glow-tonic") ?? null;
 }
 
 function pickByCategory(category: string, concern: string): Product | null {
